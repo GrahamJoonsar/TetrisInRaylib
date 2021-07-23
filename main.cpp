@@ -94,12 +94,41 @@ char Tetrominos[7][4][5] = {
     },
 };
 
-struct Tertromino{
-
+struct TertrominoVertex{
+    short y, x;
 };
 
-void movePiece(){
+class Tertromino{
+    public:
+    short x = 1, y = 1;
+    int TetroNum; // The array index of the tetromino
+    char disp;
+    TertrominoVertex vertexes[4];
+    Tertromino(int _TetroNum){
+        TetroNum = _TetroNum;
+        short numOfNonWhiteSpace = 0;
+        for (short i = 0; i < 4; i++){
+            for (short j = 0; j < 4; j++){
+                if (numOfNonWhiteSpace >= 4){return;}
+                if (Tetrominos[TetroNum][i][j] != ' '){
+                    numOfNonWhiteSpace++;
+                    disp = Tetrominos[TetroNum][i][j];                      
+                    vertexes[numOfNonWhiteSpace-1] = {i, j};
+                }
+            }
+        }
+    }
+};
 
+void movePiece(Tertromino * t){
+    // Clearing where the piece was
+    for (int i = 0; i < 4; i++){
+        GameBoard[t->vertexes[i].y + t->y][t->vertexes[i].x + t->x] = ' ';
+    }
+    //Proccess the tetronimo
+    for (int i = 0; i < 4; i++){
+        GameBoard[t->vertexes[i].y + t->y][t->vertexes[i].x + t->x] = t->disp;
+    }
 }
 
 int main(void){
@@ -111,6 +140,7 @@ int main(void){
     SetConsoleCursorInfo(handle, &CursorInfo); // Set the console cursor state
 
     for(;;){ // Game loop
+        movePiece(new Tertromino(1));
         for (int i = 0; i < 16; i++){ // Outputting to the console
             for (int j = 0; j < 20; j++){
                 switch (GameBoard[i][j]){
@@ -137,8 +167,9 @@ int main(void){
                         break;
                     default:
                         setConsoleColour(DARK);
+                        break;
                 }
-                std::cout << (char)(219) << (char)(219);
+                std::cout << (char)(219) << (char)(219); // Two cause horizontal is half of vertical
             }
             std::cout << std::endl;
         }
