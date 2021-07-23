@@ -2,9 +2,10 @@
 #include <windows.h>
 #include <conio.h>
 
+bool running = true;
+unsigned int TetrisTime = 0;
 
-void ClearScreen()
-{
+void ClearScreen(){
     COORD position;
     position.X = 0;
     position.Y = 0;
@@ -100,7 +101,7 @@ struct TertrominoVertex{
 
 class Tertromino{
     public:
-    short x = 1, y = 1;
+    short x = 10, y = 1;
     int TetroNum; // The array index of the tetromino
     char disp;
     TertrominoVertex vertexes[4];
@@ -120,16 +121,72 @@ class Tertromino{
     }
 };
 
+// Get input without pausing
+char getInput(){
+    if (_kbhit()){
+        return (_getch());
+    }
+    return 0;
+}
+
 void movePiece(Tertromino * t){
     // Clearing where the piece was
+    int targx = t->x, targy = t->y;
     for (int i = 0; i < 4; i++){
         GameBoard[t->vertexes[i].y + t->y][t->vertexes[i].x + t->x] = ' ';
     }
-    //Proccess the tetronimo
+    /* Proccess the tetronimo */
+    if (TetrisTime >= 50){
+        targy++;
+        TetrisTime = 0;
+    }
+    // Input
+    char input = getInput();
+    switch(input){
+        case 's':
+            targy++;
+            break;
+        case 'a':
+            targx--;
+            break;
+        case 'd':
+            targx++;
+            break;
+        case 'q':
+            running = false;
+            break;
+    }
+    if (targx != t->x){ // Moved horizontally
+        bool collided = false;
+        for (int i = 0; i < 4; i++){
+            if (GameBoard[t->vertexes[i].y + targy][t->vertexes[i].x + targx] != ' '){
+                collided = true;
+                break;
+            }
+        }
+        if (!collided){
+            t->x = targx;
+        }
+    }
+    if (targy != t->y){
+        bool collided = false;
+        for (int i = 0; i < 4; i++){
+            if (GameBoard[t->vertexes[i].y + targy][t->vertexes[i].x + targx] != ' '){
+                collided = true;
+                break;
+            }
+        }
+        if (!collided){
+            t->y = targy;
+        }
+    }
+    
+    // Draw the tetronimo to the screen
     for (int i = 0; i < 4; i++){
         GameBoard[t->vertexes[i].y + t->y][t->vertexes[i].x + t->x] = t->disp;
     }
 }
+
 
 int main(void){
     // Hiding the cursor
@@ -138,9 +195,12 @@ int main(void){
     GetConsoleCursorInfo(handle, &CursorInfo); // Get console cursor information
     CursorInfo.bVisible = false; // Hide the console cursor
     SetConsoleCursorInfo(handle, &CursorInfo); // Set the console cursor state
+    
+    auto CurrentTetronimo = new Tertromino(6);
 
-    for(;;){ // Game loop
-        movePiece(new Tertromino(1));
+    while(running){ // Game loop
+        TetrisTime++;
+        movePiece(CurrentTetronimo);
         for (int i = 0; i < 16; i++){ // Outputting to the console
             for (int j = 0; j < 20; j++){
                 switch (GameBoard[i][j]){
