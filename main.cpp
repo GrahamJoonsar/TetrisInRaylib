@@ -1,9 +1,11 @@
 #include <iostream>
 #include <windows.h>
 #include <conio.h>
+#include <time.h>       /* time */
 
 bool running = true;
-unsigned int TetrisTime = 0;
+double TetrisTime = 0;
+bool pieceSetDown = false;
 
 void ClearScreen(){
     COORD position;
@@ -31,23 +33,23 @@ void setConsoleColour(unsigned short color){
 
 // Console colors
 
-char GameBoard[16][20] = { // The game board where the pieces will be displayed
-    "###################",
-    "#                 #",
-    "#                 #",
-    "#                 #",
-    "#                 #",
-    "#                 #",
-    "#                 #",
-    "#                 #",
-    "#                 #",
-    "# G               #",
-    "#GG             KK#",
-    "#XGU             K#",
-    "#XUU           OOK#",
-    "#XUHH          OSS#",
-    "#XHH           OSS#",
-    "###################"
+char GameBoard[16][21] = { // The game board where the pieces will be displayed
+    "####################",
+    "#                  #",
+    "#                  #",
+    "#                  #",
+    "#                  #",
+    "#                  #",
+    "#                  #",
+    "#                  #",
+    "#                  #",
+    "#                  #",
+    "#                  #",
+    "#                  #",
+    "#                  #",
+    "#                  #",
+    "#                  #",
+    "####################"
 };
 
 char Tetrominos[7][4][5] = {
@@ -136,15 +138,19 @@ void movePiece(Tertromino * t){
         GameBoard[t->vertexes[i].y + t->y][t->vertexes[i].x + t->x] = ' ';
     }
     /* Proccess the tetronimo */
-    if (TetrisTime >= 50){
+    // Move it down every period of time
+    if (clock() - TetrisTime > 750){
         targy++;
-        TetrisTime = 0;
+        TetrisTime = clock();
     }
     // Input
+    fflush(stdin);
     char input = getInput();
     switch(input){
         case 's':
-            targy++;
+            if (targy == t->y){ // If the tetris timer didnt go off
+                targy++;
+            }
             break;
         case 'a':
             targx--;
@@ -152,10 +158,28 @@ void movePiece(Tertromino * t){
         case 'd':
             targx++;
             break;
+        case 'r': // rotate (-y, x)
+            {
+            auto vtemp = t->vertexes;
+            for (int i = 0; i < 4; i++){ // Rotate the vertexes 90 degrees
+                auto temp = t->vertexes[i].x;
+                t->vertexes[i].x = -t->vertexes[i].y; 
+                t->vertexes[i].y = temp;
+            }
+            for (int i = 0; i < 4; i++){
+                if (GameBoard[t->vertexes[i].y + t->y][t->vertexes[i].x + t->x] != ' '){ // Rotation causes collision
+                    for (int k = 0; k < 4; k++){
+                        t->vertexes[k].x = vtemp[k].x;
+                        t->vertexes[k].y = vtemp[k].y;
+                    }
+                }
+            }}
+            break;
         case 'q':
             running = false;
             break;
     }
+    /* Collision */
     if (targx != t->x){ // Moved horizontally
         bool collided = false;
         for (int i = 0; i < 4; i++){
@@ -168,11 +192,12 @@ void movePiece(Tertromino * t){
             t->x = targx;
         }
     }
-    if (targy != t->y){
+    if (targy != t->y){ // Moved vertically
         bool collided = false;
         for (int i = 0; i < 4; i++){
-            if (GameBoard[t->vertexes[i].y + targy][t->vertexes[i].x + targx] != ' '){
+            if (GameBoard[t->vertexes[i].y + targy][t->vertexes[i].x + t->x] != ' '){
                 collided = true;
+                pieceSetDown = true; // The piece has hit the ground
                 break;
             }
         }
@@ -187,6 +212,30 @@ void movePiece(Tertromino * t){
     }
 }
 
+void ClearFullLines(){
+    for (int i = 14; i > 0; i--){
+        bool full = true;
+        for (int j = 0; j < 20; j++){
+            if (GameBoard[i][j] == ' '){
+                full = false;
+                break;
+            }
+        }
+        if (full){ // Full line
+            for (int j = i; j > 0; j--){
+                auto temp = GameBoard[j];
+                for (int k = 0; k < 20; k++){
+                    GameBoard[j][k] = GameBoard[j-1][k];
+                    GameBoard[j-1][k] = temp[k];
+                } 
+            }
+            for (int k = 1; k < 19; k++){
+                GameBoard[1][k] = ' ';
+            }
+
+        }
+    }
+}
 
 int main(void){
     // Hiding the cursor
@@ -196,11 +245,26 @@ int main(void){
     CursorInfo.bVisible = false; // Hide the console cursor
     SetConsoleCursorInfo(handle, &CursorInfo); // Set the console cursor state
     
-    auto CurrentTetronimo = new Tertromino(6);
+    TetrisTime = clock();
+
+    srand(time(NULL));
+    Tertromino * CurrentTetronimo = new Tertromino(rand()%7);
 
     while(running){ // Game loop
-        TetrisTime++;
         movePiece(CurrentTetronimo);
+        if (pieceSetDown){
+            delete CurrentTetronimo;
+            CurrentTetronimo = new Tertromino(rand()%7);
+            ClearFullLines();
+            for (int i = 0; i < 4; i++){ // If at the top and colliding with a piece
+                if (GameBoard[CurrentTetronimo->vertexes[i].y + CurrentTetronimo->y][CurrentTetronimo->vertexes[i].x + CurrentTetronimo->x] != ' '){
+                    running = false;
+                    break;
+                } 
+            }
+            pieceSetDown = false;
+        }
+        //qClearFullLines();
         for (int i = 0; i < 16; i++){ // Outputting to the console
             for (int j = 0; j < 20; j++){
                 switch (GameBoard[i][j]){
