@@ -1,98 +1,78 @@
+#include "raylib.h"
 #include <iostream>
-#include <windows.h>
-#include <conio.h>
-#include <time.h>       /* time */
 
 bool running = true;
-double TetrisTime = 0;
 bool pieceSetDown = false;
+short LastInputTime = 0;
+unsigned int frameCount = 0;
+unsigned int points = 0;
 
-void ClearScreen(){
-    COORD position;
-    position.X = 0;
-    position.Y = 0;
-    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), position);//This is the way, just remember the format
-}
-
-// Colors for the console
-const unsigned short BRIGHT_BLUE = 11;
-const unsigned short BRIGHT_RED = 12;
-const unsigned short BRIGHT_GREEN = 10;
-const unsigned short BRIGHT_YELLOW = 14;
-const unsigned short BRIGHT_PINK = 13;
-const unsigned short BRIGHT_ORANGE = 6;
-const unsigned short DARK_BLUE = 9;
-const unsigned short DARK = 8;
-const unsigned short WHITE = 15;
-
-void setConsoleColour(unsigned short color){
-    static const HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-    std::cout.flush();
-    SetConsoleTextAttribute(hOut, color);
-}
-
-// Console colors
-
-char GameBoard[16][21] = { // The game board where the pieces will be displayed
-    "####################",
-    "#                  #",
-    "#                  #",
-    "#                  #",
-    "#                  #",
-    "#                  #",
-    "#                  #",
-    "#                  #",
-    "#                  #",
-    "#                  #",
-    "#                  #",
-    "#                  #",
-    "#                  #",
-    "#                  #",
-    "#                  #",
-    "####################"
+char Board[22][13] = {
+    "############",
+    "#          #",
+    "#          #",
+    "#          #",
+    "#          #",
+    "#          #",
+    "#          #",
+    "#          #",
+    "#          #",
+    "#          #",
+    "#          #",
+    "#          #",
+    "#          #",
+    "#          #",
+    "#          #",
+    "#          #",
+    "#          #",
+    "#          #",
+    "#          #",
+    "#          #",
+    "#          #",
+    "############"
 };
 
 char Tetrominos[7][4][5] = {
     {
-        "X   ",
-        "X   ",
-        "X   ",
-        "X   "
+        "0   ",
+        "0   ",
+        "0   ",
+        "0   "
     },
     {
-        "H   ",
-        "HH  ",
-        " H  ",
+        "4   ",
+        "44  ",
+        " 4  ",
         "    "
     },
     {
-        " U  ",
-        "UU  ",
-        "U   ",
+        " 6  ",
+        "66  ",
+        "6   ",
         "    "
     },
     {
-        "SS  ",
-        "SS  ",
+        "33  ",
+        "33  ",
         "    ",
         "    "
     },
     {
-        "KK  ",
-        " K  ",
-        " K  ",
+        "22  ",
+        " 2  ",
+        " 2  ",
         "    "
     },
     {
-        "OO  ",
-        "O   ",
-        "O   ",
+        "11  ",
+        "1   ",
+        "1   ",
         "    "
     },
     {
-        "G   ",
-        "GG  ",
-        "G   ",
+        "5   ",
+        "55  ",
+        "5   ",
         "    "
     },
 };
@@ -103,7 +83,7 @@ struct TertrominoVertex{
 
 class Tertromino{
     public:
-    short x = 10, y = 1;
+    short x = 5, y = 1;
     int TetroNum; // The array index of the tetromino
     char disp;
     TertrominoVertex vertexes[4];
@@ -123,67 +103,99 @@ class Tertromino{
     }
 };
 
-// Get input without pausing
-char getInput(){
-    if (_kbhit()){
-        return (_getch());
+void ClearLines(){
+    int LinesCleared = 0; // For scoring points
+    for (int i = 20; i > 0; i--){ // Looping through the lines (Bottom up)
+        bool full = true;
+        for (int j = 1; j < 12; j++){ // Looping through the line
+            if (Board[i][j] == ' '){ // Empty space
+                full = false;
+                break;
+            }
+        }
+        if (full){// The line is full
+            LinesCleared++;
+            for (int k = 1; k < 11; k++){Board[i][k] = ' ';} // Clear the line
+            for (int k = i; k > 1; k--){ // Looping through the list backwards
+                auto temp = Board[k];
+                for (int l = 1; l < 11; l++){Board[k][l] = Board[k-1][l];} // Copy the line above to the line below
+                for (int l = 1; l < 11; l++){Board[k-1][l] = temp[l];} // Vice versa
+            }
+            i++; // So the line above isnt skipped
+        }
     }
-    return 0;
+    switch(LinesCleared){
+        case 1:
+            points += 40;
+            break;
+        case 2:
+            points += 100;
+            break;
+        case 3:
+            points += 300;
+            break;
+        case 4:
+            points += 1200;
+            break;
+    }
 }
 
 void movePiece(Tertromino * t){
     // Clearing where the piece was
     int targx = t->x, targy = t->y;
     for (int i = 0; i < 4; i++){
-        GameBoard[t->vertexes[i].y + t->y][t->vertexes[i].x + t->x] = ' ';
+        Board[t->vertexes[i].y + t->y][t->vertexes[i].x + t->x] = ' ';
     }
-    /* Proccess the tetronimo */
+    /* Proccess the tetronimo 
     // Move it down every period of time
     if (clock() - TetrisTime > 750){
         targy++;
         TetrisTime = clock();
-    }
+    }*/
     // Input
-    fflush(stdin);
-    char input = getInput();
-    switch(input){
-        case 's':
+    
+    if (frameCount >= 40){
+        frameCount = 0;
+        targy++;
+    }
+    
+    if (LastInputTime >= 3){
+        LastInputTime = 0;
+        if(IsKeyDown(KEY_S)){
             if (targy == t->y){ // If the tetris timer didnt go off
                 targy++;
             }
-            break;
-        case 'a':
+        } else if (IsKeyDown(KEY_A)){
             targx--;
-            break;
-        case 'd':
+        } else if (IsKeyDown(KEY_D)){
             targx++;
-            break;
-        case 'r': // rotate (-y, x)
-            {
-            auto vtemp = t->vertexes;
+        } else if (IsKeyDown(KEY_R)){
+            TertrominoVertex * vtemp = new TertrominoVertex[4];
             for (int i = 0; i < 4; i++){ // Rotate the vertexes 90 degrees
                 auto temp = t->vertexes[i].x;
-                t->vertexes[i].x = -t->vertexes[i].y; 
-                t->vertexes[i].y = temp;
+                vtemp[i].x = -t->vertexes[i].y; 
+                vtemp[i].y = temp;
             }
+            bool fine = true;
             for (int i = 0; i < 4; i++){
-                if (GameBoard[t->vertexes[i].y + t->y][t->vertexes[i].x + t->x] != ' '){ // Rotation causes collision
-                    for (int k = 0; k < 4; k++){
-                        t->vertexes[k].x = vtemp[k].x;
-                        t->vertexes[k].y = vtemp[k].y;
-                    }
+                if (Board[vtemp[i].y + t->y][vtemp[i].x + t->x] != ' '){ // Rotation causes collision
+                    fine = false;
+                    break;
                 }
-            }}
-            break;
-        case 'q':
-            running = false;
-            break;
+            }
+            if (fine){
+                for (int i = 0; i < 4; i++){
+                    t->vertexes[i] = vtemp[i];
+                }
+            }
+            delete[] vtemp;
+        }
     }
     /* Collision */
     if (targx != t->x){ // Moved horizontally
         bool collided = false;
         for (int i = 0; i < 4; i++){
-            if (GameBoard[t->vertexes[i].y + targy][t->vertexes[i].x + targx] != ' '){
+            if (Board[t->vertexes[i].y + targy][t->vertexes[i].x + targx] != ' '){
                 collided = true;
                 break;
             }
@@ -195,7 +207,7 @@ void movePiece(Tertromino * t){
     if (targy != t->y){ // Moved vertically
         bool collided = false;
         for (int i = 0; i < 4; i++){
-            if (GameBoard[t->vertexes[i].y + targy][t->vertexes[i].x + t->x] != ' '){
+            if (Board[t->vertexes[i].y + targy][t->vertexes[i].x + t->x] != ' '){
                 collided = true;
                 pieceSetDown = true; // The piece has hit the ground
                 break;
@@ -205,98 +217,86 @@ void movePiece(Tertromino * t){
             t->y = targy;
         }
     }
-    
     // Draw the tetronimo to the screen
     for (int i = 0; i < 4; i++){
-        GameBoard[t->vertexes[i].y + t->y][t->vertexes[i].x + t->x] = t->disp;
-    }
-}
-
-void ClearFullLines(){
-    for (int i = 14; i > 0; i--){
-        bool full = true;
-        for (int j = 0; j < 20; j++){
-            if (GameBoard[i][j] == ' '){
-                full = false;
-                break;
-            }
-        }
-        if (full){ // Full line
-            for (int j = i; j > 0; j--){
-                auto temp = GameBoard[j];
-                for (int k = 0; k < 20; k++){
-                    GameBoard[j][k] = GameBoard[j-1][k];
-                    GameBoard[j-1][k] = temp[k];
-                } 
-            }
-            for (int k = 1; k < 19; k++){
-                GameBoard[1][k] = ' ';
-            }
-
-        }
+        Board[t->vertexes[i].y + t->y][t->vertexes[i].x + t->x] = t->disp;
     }
 }
 
 int main(void){
-    // Hiding the cursor
-    HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
-    CONSOLE_CURSOR_INFO CursorInfo;
-    GetConsoleCursorInfo(handle, &CursorInfo); // Get console cursor information
-    CursorInfo.bVisible = false; // Hide the console cursor
-    SetConsoleCursorInfo(handle, &CursorInfo); // Set the console cursor state
+    const int screenWidth = 650;
+    const int screenHeight = 850;
     
-    TetrisTime = clock();
+    const int BlockSize = 40;
+    
+    Color CurrentColor;
+    
+    Tertromino * CurrentTetronimo = new Tertromino(GetRandomValue(0, 6));
 
-    srand(time(NULL));
-    Tertromino * CurrentTetronimo = new Tertromino(rand()%7);
+    InitWindow(screenWidth, screenHeight, "Tetris");
 
-    while(running){ // Game loop
+    SetTargetFPS(60);
+
+    // Main game loop
+    while (!WindowShouldClose() && running){
+        LastInputTime++;
+        frameCount++;
         movePiece(CurrentTetronimo);
+        
         if (pieceSetDown){
-            delete CurrentTetronimo;
-            CurrentTetronimo = new Tertromino(rand()%7);
-            ClearFullLines();
-            for (int i = 0; i < 4; i++){ // If at the top and colliding with a piece
-                if (GameBoard[CurrentTetronimo->vertexes[i].y + CurrentTetronimo->y][CurrentTetronimo->vertexes[i].x + CurrentTetronimo->x] != ' '){
-                    running = false;
-                    break;
-                } 
-            }
+            ClearLines();
             pieceSetDown = false;
+            delete CurrentTetronimo;
+            CurrentTetronimo = new Tertromino(GetRandomValue(0, 6));
+            for (int i = 0; i < 4; i++){ // Checking if where the block spawned is colliding
+                if (Board[CurrentTetronimo->y + CurrentTetronimo->vertexes[i].y][CurrentTetronimo->x + CurrentTetronimo->vertexes[i].x] != ' '){
+                    running = false;
+                }
+            }
         }
-        //qClearFullLines();
-        for (int i = 0; i < 16; i++){ // Outputting to the console
-            for (int j = 0; j < 20; j++){
-                switch (GameBoard[i][j]){
-                    case 'X':
-                        setConsoleColour(BRIGHT_BLUE);
+        
+        BeginDrawing();
+
+        ClearBackground(RAYWHITE);
+        
+        DrawRectangle(40, 10, 420, 820, GRAY);
+        DrawText(TextFormat("Score: %08i", points), 470, 10, 20, RED);
+        
+        for (int i = 1; i < 21; i++){
+            for (int j = 1; j < 11; j++){
+                switch(Board[i][j]){
+                    case '0':
+                        CurrentColor = SKYBLUE;
                         break;
-                    case 'O':
-                        setConsoleColour(DARK_BLUE);
+                    case '1':
+                        CurrentColor = DARKBLUE;
                         break;
-                    case 'G':
-                        setConsoleColour(BRIGHT_PINK);
+                    case '2':
+                        CurrentColor = ORANGE;
                         break;
-                    case 'U':
-                        setConsoleColour(BRIGHT_RED);
+                    case '3':
+                        CurrentColor = YELLOW;
                         break;
-                    case 'H':
-                        setConsoleColour(BRIGHT_GREEN);
+                    case '4':
+                        CurrentColor = GREEN;
                         break;
-                    case 'S':
-                        setConsoleColour(BRIGHT_YELLOW);
+                    case '5':
+                        CurrentColor = VIOLET;
                         break;
-                    case 'K':
-                        setConsoleColour(WHITE);
+                    case '6':
+                        CurrentColor = RED;
                         break;
                     default:
-                        setConsoleColour(DARK);
+                        CurrentColor = RAYWHITE;
                         break;
                 }
-                std::cout << (char)(219) << (char)(219); // Two cause horizontal is half of vertical
+                DrawRectangle(50 + (j-1) * BlockSize, 20 + (i-1) * BlockSize, BlockSize, BlockSize, CurrentColor);
             }
-            std::cout << std::endl;
         }
-        ClearScreen();
+
+        EndDrawing();
     }
+
+    CloseWindow();
+    return 0;
 }
