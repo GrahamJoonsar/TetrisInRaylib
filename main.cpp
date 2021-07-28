@@ -176,6 +176,15 @@ void movePiece(Tertromino * t){
                 vtemp[i].x = -t->vertexes[i].y; 
                 vtemp[i].y = temp;
             }
+            int min = 0;
+            for (int i = 0; i < 4; i++){
+                if (vtemp[i].x < min){
+                    min = vtemp[i].x;
+                }
+            }
+            for (int i = 0; i < 4; i++){
+                vtemp[i].x -= min;
+            }
             bool fine = true;
             for (int i = 0; i < 4; i++){
                 if (Board[vtemp[i].y + t->y][vtemp[i].x + t->x] != ' '){ // Rotation causes collision
@@ -189,6 +198,12 @@ void movePiece(Tertromino * t){
                 }
             }
             delete[] vtemp;
+        } else if (IsKeyDown(KEY_Q)){
+            for (int i = 1; i < 21; i++){
+                for (int j = 1; j < 11; j++){
+                    Board[i][j] = ' ';
+                }
+            }
         }
     }
     /* Collision */
@@ -242,7 +257,6 @@ int main(void){
         LastInputTime++;
         frameCount++;
         movePiece(CurrentTetronimo);
-        
         if (pieceSetDown){
             ClearLines();
             pieceSetDown = false;
@@ -264,6 +278,7 @@ int main(void){
         
         for (int i = 1; i < 21; i++){
             for (int j = 1; j < 11; j++){
+                /*bool black = true;*/
                 switch(Board[i][j]){
                     case '0':
                         CurrentColor = SKYBLUE;
@@ -288,8 +303,12 @@ int main(void){
                         break;
                     default:
                         CurrentColor = RAYWHITE;
+                        /*black = false;*/
                         break;
                 }
+                /*if (black)
+                DrawRectangle(50 + (j-1) * BlockSize, 20 + (i-1) * BlockSize, BlockSize, BlockSize, BLACK);
+                else*/
                 DrawRectangle(50 + (j-1) * BlockSize, 20 + (i-1) * BlockSize, BlockSize, BlockSize, CurrentColor);
             }
         }
